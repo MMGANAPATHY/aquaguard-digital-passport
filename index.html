@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AquaGuard – Digital Water Passport</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #00c6ff, #0072ff);
+      min-height: 100vh;
+      color: white;
+    }
+
+    h1 {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .wallet {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 20px;
+      width: 300px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      color: #ffeb3b;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+    }
+
+    button {
+      background: linear-gradient(135deg, #ff9800, #ff5722);
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    #status {
+      text-align: center;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+
+    #qrcode {
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>💧 AquaGuard – Digital Water Passport</h1>
+
+<div class="wallet">
+  <button onclick="connect()">🔗 Connect Wallet</button>
+</div>
+
+<div class="container">
+
+  <div class="card">
+    <h2>🏭 Treatment Plant</h2>
+    <input id="waterAmount" placeholder="Litres purified">
+    <button onclick="addWater()">Record Purification</button>
+  </div>
+
+  <div class="card">
+    <h2>🏗 Bottling Factory</h2>
+    <input id="batchId" placeholder="Batch ID">
+    <input id="bottleCount" placeholder="Bottle count">
+    <button onclick="createBatch()">Create Bottle Batch</button>
+    <div id="qrcode"></div>
+  </div>
+
+</div>
+
+<div id="status"></div>
+
+<script>
+const CONTRACT_ADDRESS = "0x96cE783c48db13C6d97e5f03c9E8a9Ff27cb07eE";
+
+const ABI = [
+  "function addPurifiedWater(uint litres)",
+  "function createBottleBatch(uint batchId, uint bottleCount)"
+];
+
+let provider, signer, contract;
+
+async function connect() {
+  if (!window.ethereum) {
+    alert("MetaMask not detected");
+    return;
+  }
+  provider = new ethers.providers.Web3Provider(window.ethereum);
+  await provider.send("eth_requestAccounts", []);
+  signer = provider.getSigner();
+  contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+  document.getElementById("status").innerText = "✅ Wallet connected";
+}
+
+async function addWater() {
+  if (!contract) return alert("Connect wallet first");
+  const amt = document.getElementById("waterAmount").value;
+  const tx = await contract.addPurifiedWater(amt);
+  document.getElementById("status").innerText = "⏳ Recording purification...";
+  await tx.wait();
+  document.getElementById("status").innerText = "✅ Water recorded";
+}
+
+async function createBatch() {
+  if (!contract) return alert("Connect wallet first");
+
+  const id = document.getElementById("batchId").value;
+  const count = document.getElementById("bottleCount").value;
+
+  const tx = await contract.createBottleBatch(id, count);
+  document.getElementById("status").innerText = "⏳ Creating bottle batch...";
+  await tx.wait();
+  document.getElementById("status").innerText = "✅ Bottle batch created";
+
+  // SAFE LOCALHOST QR (OPTION 1)
+  const port = window.location.port;
+  const url = "http://127.0.0.1:" + port + "/verify.html?batch=" + id;
+
+  const qrDiv = document.getElementById("qrcode");
+  qrDiv.innerHTML = "";
+  new QRCode(qrDiv, {
+    text: url,
+    width: 140,
+    height: 140
+  });
+}
+</script>
+
+</body>
+</html>
